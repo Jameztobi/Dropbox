@@ -1,4 +1,206 @@
-body {
-  font-family: "helvetica", sans-serif;
-  text-align: center;
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@100;300&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500&display=swap');
+@import url("https://fonts.googleapis.com/css?family=Rubik:500,700|Roboto:400,600");
+
+/*This property allows us to include the padding and border in an element's total width and height*/
+html {
+    box-sizing:border-box; 
 }
+*, *:before,*:after{
+    box-sizing: inherit;
+}
+
+body {
+    margin: 0; 
+    color: white;
+    font-family: 'Roboto', sans-serif;
+    font-style: normal;
+    font-weight: 400;
+    font-size: 1em;
+    background-color:#b38e8e;
+}
+header{
+    background: rgb(151, 27, 27);
+    height: 120px;
+}
+
+div#admin-wrapper{
+    display:flex;
+    height:39em;
+    border: 1px solid red;
+}
+
+div#admin-wrapper aside.left{
+  flex:2;
+  height: 100;
+  background: rgb(113, 59, 59);
+}
+
+div#admin-wrapper aside.left ul{
+    list-style: none;
+    margin: 0em;
+    padding:0em;
+    color:white;
+}
+
+div#admin-wrapper aside.left ul li a{
+    padding: 2em;
+    display: block;
+    border-bottom: 1px solid #004044; 
+    text-decoration: none;
+    color:white;
+}
+
+div#admin-wrapper aside.left ul li a:hover{
+    background:rgb(80, 4, 4);
+}
+
+div#admin-wrapper main.main-content{
+  flex:8;
+  height: 100;
+  padding: 2em 4em;
+  overflow-y:scroll;
+
+}
+
+.main-content .page-title{
+    text-align: center;
+    margin-bottom: 2em;
+}
+
+table{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 1em;
+}
+
+th td{
+    padding: 4em;
+    text-align: left;
+    border-bottom: 1px solid #d3d3d3;
+}
+
+.edit{
+    color:green;
+    text-decoration: none;
+}
+
+.delete{
+    color:red;
+    text-decoration: none;
+}
+
+.publish{
+    color:blue;
+    text-decoration: none;
+}
+
+.edit:hover,
+.delete:hover,
+.publish:hover{
+    text-decoration: underline;
+}
+
+div label{
+    margin-right: 0em;
+    padding: 0em;
+    display: flex;
+}
+
+div input.text-input{
+    width: 100%;
+}
+
+form div{
+    margin-bottom: 2em;
+}
+
+#addBooking{
+    margin: -2.4em 0em 2em 6em;
+}
+li{
+    list-style: none;
+}
+ul li label {
+    white-space: nowrap;
+    text-align: left;
+    display: inline-block;
+    text-decoration: none;
+    width: 43px;
+    font-size: 20px;
+    font-weight: 200;
+}
+input.form-control{
+    margin: -29px 0px 3px 178px;
+    padding: 4px;
+    width: 204px;
+    box-sizing: border-box;
+   
+}
+input.form-con{
+    margin: -2px 0px 3px -2px;
+    padding: 4px;
+    width: 204px;
+    box-sizing: border-box;
+   
+}
+  
+input.form-option{
+    margin: 5px 0px 5px 219px;
+    padding: 3px;
+    width: 157px;
+    box-sizing: border-box;
+   
+}
+
+form.booking{
+    margin: 3em 0em 0em 18em;
+}
+
+section.features{
+    margin: 2em 0em 0em 1em;
+}
+
+input.btn.btn-danger.booking{
+    margin: 1em 11em 0em -6em;
+}
+
+  /* Style the buttons */
+.btn.filter {
+    border: none;
+    outline: none;
+    padding: 12px 16px;
+    background-color: #f1f1f1;
+    cursor: pointer;
+}
+.btn:hover {
+    background-color: #ddd;
+}
+  
+.btn.active.filter {
+    background-color: #666;
+    color: white;
+}
+
+div.message p{
+    margin-bottom: 0;  
+}
+
+#demo{
+    margin-top: 2em;
+}
+
+a.disabled{
+    pointer-events: none;
+    cursor: default;
+}
+
+/* button#myBtn.btn.filter{
+    margin: -16em 0em 0em 46em;
+}
+#clear{
+    margin-top: -7em;
+} */
+
+  

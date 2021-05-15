@@ -1,0 +1,10 @@
+indexes:
+- kind: directory
+  ancestor: yes
+  properties:
+  - name: Directory
+    direction: desc
+
+
+
+  
