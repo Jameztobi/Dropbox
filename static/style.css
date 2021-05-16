@@ -196,6 +196,21 @@ a.disabled{
     cursor: default;
 }
 
+input#path-getter.form-path{
+    margin: -5em 0em 2em 22em;
+    padding: 0px;
+    width: 218px;
+    box-sizing: border-box;
+}
+
+.path-label{
+    margin: 0em 0em 0em 1em;
+    padding: 0em 0em 0em 17em;
+    font-size: 1.5em;
+    color: #311e1e;
+    font-weight: bold;
+}
+
 /* button#myBtn.btn.filter{
     margin: -16em 0em 0em 46em;
 }

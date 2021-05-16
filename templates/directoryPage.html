@@ -67,26 +67,37 @@
         {% endwith %}
         {% if user_info %}
         <section id="dp">
-          {% if directory_list %}
-          <div class="row">
+
+           {% if count > 2 %}
+               {% if path %}
+                    <form action="/way/{{path}}" class="form-group" method="POST">
+                        <label for="path-getter" class="path-label">Path:</label>
+                        <input type="text" class="form-path" id = "path-getter" name='path'  />
+                        <input type="submit" class="btn btn-danger" id = "path-getter" value='submit' />
+                    </form>
+                {% endif %}
+            {% endif %}
+
+            {% if directory_list %}
+            <div class="row">
             {% for i in directory_list %}
             <div class="col-sm-4">
               <div class="card bg-dark mb-1" style="max-width: 18rem;">
                 <div class="card-body">
-                  <p hidden>{{i.name}}</p>
-                  <p class="card-text">Folder Name: {{i.name}}</p>
-                  {% if root==i.name %}
+                  <p hidden>{{i}}</p>
+                  <p class="card-text">Folder Name: {{i}}</p>
+                  {% if root==i %}
                   <p class="card-text">Root </p>
                   {% endif %}
                   <div class="row">
                     <div class="col-5">
-                      <a href="/addDirectory" class="btn btn-danger">Add Directory</a>
+                      <a href="/addDirectory/{{i}}" class="btn btn-danger">Add Directory</a>
                     </div>
                     <div class="col-3">
-                      <a href="/show/{{i.name}}" class="btn btn-danger" style="margin: 0em 0em 0em -1em;">Show content</a>
+                      <a href="/show/{{i}}" class="btn btn-danger" style="margin: 0em 0em 0em -1em;">Show content</a>
                     </div>
                     <div class="col-3" >
-                      <a href="/delete/{{i.name}}" class="btn btn-danger" style="margin: 0em 0em 0em -0.3em;">Delete Folder</a>
+                      <a href="/delete/{{i}}" class="btn btn-danger" style="margin: 0em 0em 0em -0.3em;">Delete Folder</a>
                     </div>
                   </div>
                 </div>
