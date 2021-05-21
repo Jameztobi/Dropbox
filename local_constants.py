@@ -1,2 +1,4 @@
 PROJECT_NAME= 'spheric-base-308113'
 PROJECT_STORAGE_BUCKET='spheric-base-308113.appspot.com'
+ACCESS_ID='waNQ3hMKq8pC8S6DnaAwZSVphCSYpMrmEtD675YP'
+PROJECT_ID='spheric-base-308113'
