@@ -37,8 +37,6 @@
       <aside class="left">
         <ul>
           <li><a href="/">Home</a></li>
-          <li><a href="/addDirectory">Create Directory</a></li>
-          <li><a href="/myRooms">Manage Room</a></li>
         </ul>
       </aside>
       <!--//left sidebar-->
@@ -97,11 +95,15 @@
         var i;
         for(i =0; i<mylist.length; i++){
             if(filename == mylist[i]){
-                if(confirm("Will you like to overwrite this file?")){
+                if(confirm("This file already exist, will you like to save another copy of this file")){
                     document.getElementById("confirm").value="change"
                     break
                 }
-                document.location.reload(true);
+                else{
+                  document.getElementById('filename').value=null;
+                  event.preventDefault();
+                }
+                
 
                 
             }

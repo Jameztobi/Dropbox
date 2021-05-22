@@ -71,21 +71,14 @@ def delete_blob(blob_name):
    
     storage_client = storage.Client(project=local_constants.PROJECT_NAME)
     bucket = storage_client.bucket(local_constants.PROJECT_STORAGE_BUCKET)
-
+    print(blob_name)
     blob = bucket.blob(blob_name)
     blob.delete()
 
 def blob_metadata(blob_name):
-    """Prints out a blob's metadata."""
-    # bucket_name = 'your-bucket-name'
-    # blob_name = 'your-object-name'
-
     storage_client = storage.Client(project=local_constants.PROJECT_NAME)
     bucket = storage_client.bucket(local_constants.PROJECT_STORAGE_BUCKET)
 
-    # Retrieve a blob, and its metadata, from Google Cloud Storage.
-    # Note that `get_blob` differs from `Bucket.blob`, which does not
-    # make an HTTP request.
     blob = bucket.get_blob(blob_name)
     return blob.md5_hash
     
@@ -111,7 +104,7 @@ def downloadBlob(filename):
     bucket = storage_client.bucket(local_constants.PROJECT_STORAGE_BUCKET)
     
     blob = bucket.blob(filename)
-    return blob.download_to_filename(filename)
+    return blob.download_as_bytes()
  
 
 @app.route('/addDirectory/<path:name>', methods=['POST', 'GET'])
@@ -189,7 +182,6 @@ def root():
         except ValueError as exc: 
             error_message = str(exc)
         
-        #print(error_message)
 
     return render_template('indexPage.html', user_data=claims, error_message=error_message, user_info=user_info, root=session['email']+'/', directory_list=directory_list)
 
@@ -211,13 +203,18 @@ def addDirectoryHandler(name):
             if directory_name == '' or directory_name[len(directory_name) - 1] != '/':
                 flash('A directory should have a directory name followed by a /')
                 return render_template('addDirectory.html')
+            blob_list = blobList(name, True) 
+            for i in blob_list:
+                if i.name[len(i.name)-1]=='/':
+                    session['location']=name
+                if i.name[len(i.name)-1]!='/':
+                    files.append(i.name)
+
             name=name+'/'
 
             directory_name = name+directory_name
-            #print(directory_name)
             user_info = retrieveUserInfo(claims)
             directory=user_info['directory_list_keys']
-            files=user_info['files_list_keys']
 
             for d in directory:
                 if d == directory_name:
@@ -226,7 +223,6 @@ def addDirectoryHandler(name):
 
             addDirectory(directory_name)
             directory.append(directory_name)
-            #print(directory)
             user_info.update({
                 'directory_list_keys': directory
             })
@@ -236,8 +232,8 @@ def addDirectoryHandler(name):
             flash('You have successfully created a new directory')
             session['location']=directory_name
             directory.remove(directory_name)
+            blob_list = blobList(name, True)
 
-       
         except ValueError as exc: 
             error_message = str(exc)
 
@@ -270,12 +266,13 @@ def showDirectory(name):
                 directory_list.append(prefix)
                 count = prefix.count('/')
             if count ==0:
-                count=name.count('/')       
-
+                count=1+name.count('/')   
+            print(count)    
+           
         except ValueError as exc: 
             error_message = str(exc)
     
-    return render_template('directoryPage.html', directory_list=directory_list, files=files, user_info=user_info, count=count, path=session['location'])
+    return render_template('directoryPage.html', directory_list=directory_list, files=files, user_info=user_info, count=count, path=name)
 
 @app.route('/way/<path:vn>', methods=['POST', 'GET'])
 def changeDirectory(vn):
@@ -325,29 +322,37 @@ def deleteDirectory(name):
     files=[]
     temp1=[]
     temp2=[]
+    temp_name=None
 
     if id_token:
         try:
             claims = google.oauth2.id_token.verify_firebase_token(id_token, firebase_request_adapter)
             user_info = retrieveUserInfo(claims)
            
-          
+            temp_name=name
             temp_list=user_info['files_list_keys']
             for i in range(len(temp_list)):
                 if name.find(temp_list[i])>=0:
                     name=temp_list[i]
+                    print('second name',name)
 
             blob_list = blobList(name, True)
             for i in blob_list:
                 if i.name[len(i.name)-1]=='/' and i.name != name:
-                    #print(i.name)
-                    directory_list.append(i)
-                    #session['location']=name
-                else:
-                    files.append(i)
+                    print('name with i',i.name)
+                    directory_list.append(i.name)
+                    session['location']=name
+                    print('directory',directory_list)
+                if i.name[len(i.name)-1]!='/':
+                    files.append(i.name)
+                   
             
-            if len(directory_list) and len(files)!=0:
-                flash('This directory has content so cannot be deleted ')
+            if len(files)!=0:
+                flash('This directory still has files so cannot be deleted')
+                return render_template('directoryPage.html', directory_list=directory_list)
+            
+            if len(directory_list)!=0:
+                flash('This directory has content so cannot be deleted 2')
                 return render_template('directoryPage.html', directory_list=directory_list)
             
             mylist = user_info['directory_list_keys']
@@ -356,23 +361,20 @@ def deleteDirectory(name):
                 if not name.find(mylist[n])>=0:
                     temp1.append(mylist[n])
             
+            
             mylist=user_info['files_list_keys']
-            #print(name)
             for n in range(len(mylist)):
                 if not name.find(mylist[n])>=0:
                     temp2.append(mylist[n])
-
-            if not name.find(session['location'])>=0:
-                name=session['location']+name
-
-            delete_blob(name)
-
+                   
             user_info.update({
                 'directory_list_keys':temp1,
                 'files_list_keys':temp2
             })
 
-            datastore_client.put(user_info) 
+            datastore_client.put(user_info)
+
+            delete_blob(temp_name)
             
             directory_list=[]
             blob_list = blobList(session['location'], None)
@@ -380,7 +382,8 @@ def deleteDirectory(name):
                 if i.name[len(i.name)-1]=='/' and i.name != name:
                     directory_list.append(i)
                     session['location']=name
-        
+            
+            flash('Delete Successful')
         except ValueError as exc: 
             error_message = str(exc)
     
@@ -418,16 +421,13 @@ def uploadFileHandler(name):
             
             user_info = retrieveUserInfo(claims)
             myList=user_info['files_list_keys']
-            # directory=user_info['directory_list_keys']
-            # temp=directory[len(directory)-1]
-            # count = temp.count('/')
+           
             myList.append(file.filename)
             user_info.update({
                 'files_list_keys':myList 
             })
             datastore_client.put(user_info)
             addFile(name, file)
-            blob_metadata(name)
             flash("You have successfully added a file")
             blob_list = blobList(name, True)
             for i in blob_list:
@@ -439,13 +439,12 @@ def uploadFileHandler(name):
                 directory_list.append(prefix)
                 count = prefix.count('/')
             if count ==0:
-                count=name.count('/')
-        
+                count=2+name.count('/')
         
         except ValueError as exc: 
             error_message = str(exc)
 
-    return render_template('directoryPage.html', directory_list=directory_list, files=myList, user_info=user_info, count=count, path=session['location'])
+    return render_template('directoryPage.html', directory_list=directory_list, files=files, user_info=user_info, count=count, path=session['location'])
 
 @app.route('/download_file/<path:filename>', methods=['POST', 'GET']) 
 def downloadFile(filename):
@@ -459,48 +458,98 @@ def downloadFile(filename):
     if id_token:
         try:
             claims = google.oauth2.id_token.verify_firebase_token(id_token, firebase_request_adapter)
-            print('we are here')
-            print(filename)
+
         except ValueError as exc: 
             error_message = str(exc)
     return Response(downloadBlob(filename), mimetype='application/octet-stream')
 
 @app.route('/show_dublicates', methods=['POST', 'GET'])
 def show_dublicate():
-    files={}
+    id_token = request.cookies.get("token") 
+    files_list={}
+    files=[]
+    count=0
     temp_list=[]
     unique_list = []
     myList=[]
     temp=[]
+    temp_list_final=[]
     location=session['location']
+    if id_token:
+        try:
+            claims = google.oauth2.id_token.verify_firebase_token(id_token, firebase_request_adapter)
+            user_info = retrieveUserInfo(claims)
+            blob_list = blobList(location, True)
+            for i in blob_list:
+                if i.name[len(i.name)-1]!='/':
+                    files_list.update({
+                        i.name:blob_metadata(i.name)
+                    })
+                    temp_list.append(blob_metadata(i.name))
+            
+            for i in range(0, len(temp_list)):
+                for j in range(i+1, len(temp_list)):
+                    if temp_list[i]== temp_list[j]:
+                        count=count+1
+                        temp_list_final.append(temp_list[i]) 
+            if count==0:
+                flash('There are no Dublicates')
+                return render_template('showDublicates.html', user_info=user_info, path=session['location'])
 
-    blob_list = blobList(location, True)
-    for i in blob_list:
-        if i.name[len(i.name)-1]!='/':
-            files.update({
-                i.name:blob_metadata(i.name)
-            })
-            temp_list.append(blob_metadata(i.name))
-   
-    myList.append([item for item, count in collections.Counter(temp_list).items() if count > 1])
-    #s = set( val for dic in lis for val in dic.values())
+            for name, dict_ in files_list.items():
+                if dict_ in temp_list_final:
+                    temp.append(name)
+            
+        except ValueError as exc: 
+            error_message = str(exc)
 
-    # traverse for all elements
-    for x in myList:
-        if x not in unique_list:
-            unique_list.append(x)
-   
-    for name, dict_ in files.items():
-        for i in range(len(unique_list)):
-            if dict_ == unique_list[i]:
-                print(dict_)
-                temp.append(name)
-    
-    print(temp)
+    return render_template('showDublicates.html', files=temp, user_info=user_info, path=session['location'])
 
+@app.route('/allDublicates', methods=['POST', 'GET'])
+def show_all_dublicate():
+    id_token = request.cookies.get("token") 
+    files_list={}
+    files=[]
+    count=0
+    temp_list=[]
+    temp_list_final=[]
+    unique_list = []
+    mylist=[]
+    temp=[]
+    location=session['location']
+    if id_token:
+        try:
+            claims = google.oauth2.id_token.verify_firebase_token(id_token, firebase_request_adapter)
+            user_info = retrieveUserInfo(claims)
+            name=user_info['email']+'/'
+            
+            blob_list = blobList(name, False)
+            for i in blob_list:
+                if i.name[len(i.name)-1]!='/':
+                    mylist.append(i.name)
 
-    return redirect('/')
+            for i in range(len(mylist)):
+                files_list.update({
+                    mylist[i]:blob_metadata(mylist[i])
+                })
+                temp_list.append(blob_metadata(mylist[i]))
 
+            for i in range(0, len(temp_list)):
+                for j in range(i+1, len(temp_list)):
+                    if temp_list[i]== temp_list[j]:
+                        count=count+1
+                        temp_list_final.append(temp_list[i])  
+            if count==0:
+                flash('There are no Dublicates')
+                return render_template('showDublicates.html', user_info=user_info, path=session['location'])
 
+            for name, dict_ in files_list.items():
+                if dict_ in temp_list_final:
+                    temp.append(name)
+            
+        except ValueError as exc: 
+            error_message = str(exc)
+
+    return render_template('showDublicates.html', files=temp, user_info=user_info, path=session['location'])
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)
