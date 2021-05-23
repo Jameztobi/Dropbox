@@ -2,7 +2,6 @@ from flask import Flask, render_template, request, redirect, session, flash, Res
 from google.cloud import datastore, storage
 import google.oauth2.id_token
 from google.auth.transport import requests
-import json
 import local_constants
 import random
 
@@ -27,11 +26,18 @@ def createUserInfo(claims):
 
     datastore_client.put(entity)
 
-def createGeneralShares(name):
-    entity_key = datastore_client.key('general', name) 
+def retrieveUserInfo(claims):
+    entity_key = datastore_client.key('user_info', claims['email']) 
+    entity = datastore_client.get(entity_key)
+   
+    return entity
+
+
+def createGeneralShares(email):
+    entity_key = datastore_client.key('shared', email) 
     entity = datastore.Entity(key = entity_key)
     entity.update({
-        'name':name, 
+        'name':email, 
         'shared_files':[],
         'link': None
         
@@ -39,41 +45,12 @@ def createGeneralShares(name):
 
     datastore_client.put(entity)
 
-def retrieveGeneralShares(name):
-    entity_key = datastore_client.key('general', name) 
+def retrieveGeneralShares(email):
+    entity_key = datastore_client.key('shared', email) 
     entity = datastore_client.get(entity_key)
 
     return entity
 
-
-def retrieveUserInfo(claims):
-    entity_key = datastore_client.key('user_info', claims['email']) 
-    entity = datastore_client.get(entity_key)
-   
-    return entity
-
-def createDirectory(claims, name):
-    entity_key = datastore_client.key('user_info', claims['email'], 'Directory', name)
-    entity = datastore.Entity(key=entity_key)
-    
-    entity.update({
-        'name': name,
-        'subdirectories':[],
-    })
-    datastore_client.put(entity)  
-
-def retrieveCurrentDirectory(claims, name):
-    entity_key = datastore_client.key('user_info', claims['email'], 'Directory', name)
-    entity = datastore_client.get(entity_key)
-
-    return entity
-
-
-def retrieveDirectory(claims):
-    user_info=retrieveUserInfo(claims)
-    directory_names=user_info['directory_list_keys']
-
-    return directory_names
 
 
 def blobList(prefix, boolean):
@@ -137,7 +114,6 @@ def blob_metadata(blob_name):
     return blob.md5_hash
     
 
-
 def addDirectory(directory_name):  
     storage_client = storage.Client(project=local_constants.PROJECT_NAME) 
     bucket = storage_client.bucket(local_constants.PROJECT_STORAGE_BUCKET)
@@ -188,12 +164,11 @@ def addFilePageHandler(name):
                     session['location']=name
                 if i.name[len(i.name)-1]!='/':
                     file_list.append(i.name)
-            print(file_list)
             
         except ValueError as exc: 
             error_message = str(exc)
      
-    return render_template('addFiles.html', path=name, data=json.dumps(file_list))
+    return render_template('addFiles.html', path=name, data=file_list)
 
 @app.route('/shareFile/<path:name>', methods=['POST', 'GET'])
 def shareFileHandler(name):
@@ -211,7 +186,6 @@ def root():
     root = True
     directory_list = []
 
-
     if id_token:
 
         try:
@@ -223,7 +197,6 @@ def root():
             user_info = retrieveUserInfo(claims)
             session['email']=user_info['email']
             session['location']=session['email']+'/'
-            mylist=user_info['directory_list_keys']
 
             blob_list = blobList(None, False) 
             for i in blob_list:
@@ -252,6 +225,7 @@ def addDirectoryHandler(name):
     times = None
     user_info = None
     directory=[]
+    directory_list=[]
     files=[]
     count=0
     if id_token:
@@ -287,15 +261,23 @@ def addDirectoryHandler(name):
             })
             datastore_client.put(user_info)
             count = directory_name.count('/')
-            createDirectory(claims, directory_name)
+           
             flash('You have successfully created a new directory')
             session['location']=directory_name
+
+            blob_list = blobList(name, True)
+            for i in blob_list:
+                for prefix in blob_list.prefixes:
+                    directory_list.append(prefix)
+                    count = prefix.count('/')
+                if count ==0:
+                    count=2+name.count('/')
             
 
         except ValueError as exc: 
             error_message = str(exc)
 
-    return render_template('directoryPage.html', directory_list=directory, files=files, user_info=user_info, count=count)
+    return render_template('directoryPage.html', directory_list=directory_list, files=files, user_info=user_info, count=count)
 
 @app.route('/show/<path:name>/', methods=['POST', 'GET'])
 def showDirectory(name):
@@ -341,6 +323,7 @@ def changeDirectory(vn):
     user_info = None
     directory_list=[]
     files=[]
+    myList=[]
     count=0
     prefix=None
 
@@ -364,8 +347,7 @@ def changeDirectory(vn):
             for prefix in blob_list.prefixes:
                 directory_list.append(prefix) 
             count=count
-            print(count)
-            print(myList)  
+           
 
         except ValueError as exc: 
             error_message = str(exc)
@@ -375,7 +357,7 @@ def changeDirectory(vn):
 
 
 @app.route('/delete/<path:name>', methods=['POST', 'GET'])
-def deleteDirectory(name):
+def delete(name):
 
     id_token = request.cookies.get("token") 
     error_message = None
@@ -398,15 +380,23 @@ def deleteDirectory(name):
             for i in range(len(temp_list)):
                 if name.find(temp_list[i])>=0:
                     name=temp_list[i]
-                    print('second name',name)
-
+            
+            if name[len(name)-1]=='/':
+                name=name.rsplit('/', 1)[0]+'/'
+                blob_list = blobList(name, None)
+                for i in blob_list:
+                    if i.name[len(i.name)-1]=='/' and i.name != name:
+                        print(i.name)
+                        directory_list.append(i.name)
+                        session['location']=name
+                
             blob_list = blobList(name, True)
             for i in blob_list:
                 if i.name[len(i.name)-1]=='/' and i.name != name:
-                    print('name with i',i.name)
+                    print(i.name)
                     directory_list.append(i.name)
                     session['location']=name
-                    print('directory',directory_list)
+        
                 if i.name[len(i.name)-1]!='/':
                     files.append(i.name)
                    
@@ -416,7 +406,7 @@ def deleteDirectory(name):
                 return render_template('directoryPage.html', directory_list=directory_list)
             
             if len(directory_list)!=0:
-                flash('This directory has content so cannot be deleted 2')
+                flash('This directory has content so cannot be deleted')
                 return render_template('directoryPage.html', directory_list=directory_list)
             
             mylist = user_info['directory_list_keys']
@@ -498,6 +488,7 @@ def uploadFileHandler(name):
             })
             datastore_client.put(user_info)
             addFile(name, file)
+    
             flash("You have successfully added a file")
             blob_list = blobList(name, True)
             for i in blob_list:
@@ -647,8 +638,9 @@ def share_file_handler(name):
                 'link':temp_link
             })
 
-            datastore_client.put(user_info)      
-            
+            datastore_client.put(user_info) 
+
+            flash('You have successfully shared the file with {}'.format(claims['email']))
         except ValueError as exc: 
             error_message = str(exc)
     
@@ -657,7 +649,7 @@ def share_file_handler(name):
 
 @app.route('/showSharedFiles', methods=['POST', 'GET'])
 def show_shared_file_handler():
-    mylist=None
+    mylist=[]
     user_info=None
     link=None
     id_token = request.cookies.get("token") 
@@ -666,13 +658,17 @@ def show_shared_file_handler():
         try:
             claims = google.oauth2.id_token.verify_firebase_token(id_token, firebase_request_adapter)
             email=claims['email']
-
             user_info = retrieveGeneralShares(email)
+
+            if user_info==None:
+                flash('You have no shared files')
+                return redirect('/')
+
             mylist=user_info['shared_files']
             link=user_info['link']
-            if len(mylist)==0:
+            if mylist ==None or len(mylist)==0:
                 flash('You have no shared files')
-            print(mylist)
+                
 
         except ValueError as exc: 
             error_message = str(exc)
