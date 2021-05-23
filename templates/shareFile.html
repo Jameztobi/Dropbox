@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <title>Add Files </title>
+  <title>Share Files </title>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 
@@ -29,7 +29,7 @@
     <header>
       <button id="sign-out" hidden="true"> Sign out </button>
 
-      <h1>Create Directory</h1>
+      <h1>Share File</h1>
     </header>
     <!--Admin Page Wrapper-->
     <div id="admin-wrapper">
@@ -56,13 +56,15 @@
 
         <div id="feedback"> </div>
 
-        {% if (path or file_list) %}
-        <form action="/upload_file/{{path}}" method="post" enctype="multipart/form-data" onsubmit= "checker()">
+        {% if path  %}
+        <form action="/share_file/{{path}}" method="post" enctype="multipart/form-data" onsubmit= "checker()">
           <div class="form-group row">
-            <label for="inputName3" class="col-sm-2 col-form-label">Upload Files:</label>
-            <input hidden type="text"  id="confirm" name="mode" value="normal"></p>
+            <h4> Who will you like to share this file</h4>
+            <label for="inputName3" class="col-sm-2 col-form-label">Email:</label>
             <div class="col-sm-6">
-              <input type="file" name="file_name" id = "filename"  class="form-con"/>
+              <input type="text" name="file_name" id = "filename"  style="margin: -2px 0px 3px -94px;padding: 4px;
+              width: 248px;
+              box-sizing: border-box;"/>
             </div>
           </div>
        
@@ -86,32 +88,6 @@
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 
-  <script type="text/javascript">        
-    function checker(){
-        var temp= {{ data| safe}};
-        var mylist = temp;
-        var filename= document.getElementById("filename").value;
-        filename=filename.split(/(\\|\/)/g).pop();
-        
-        var i;
-        for(i =0; i<mylist.length; i++){
-            if(filename == mylist[i]||mylist[i].includes(filename) ){
-                if(confirm("This file already exist, will you like to save another copy of this file")){
-                    document.getElementById("confirm").value="change"
-                    break
-                }
-                else{
-                  document.getElementById('filename').value=null;
-                  event.preventDefault();
-                }
-    
-                
-            }
-            
-        }
-    }
-    event.preventDefault();
-  </script>
 </body>
 
 </html>

@@ -4,7 +4,7 @@ import google.oauth2.id_token
 from google.auth.transport import requests
 import json
 import local_constants
-import collections
+import random
 
 
 app = Flask(__name__)
@@ -22,10 +22,29 @@ def createUserInfo(claims):
     entity.update({
         'email': claims['email'],
         'directory_list_keys':[],
-        'files_list_keys':[] 
+        'files_list_keys':[]
     })
 
     datastore_client.put(entity)
+
+def createGeneralShares(name):
+    entity_key = datastore_client.key('general', name) 
+    entity = datastore.Entity(key = entity_key)
+    entity.update({
+        'name':name, 
+        'shared_files':[],
+        'link': None
+        
+    })
+
+    datastore_client.put(entity)
+
+def retrieveGeneralShares(name):
+    entity_key = datastore_client.key('general', name) 
+    entity = datastore_client.get(entity_key)
+
+    return entity
+
 
 def retrieveUserInfo(claims):
     entity_key = datastore_client.key('user_info', claims['email']) 
@@ -67,8 +86,43 @@ def blobList(prefix, boolean):
 
     return storage_client.list_blobs(local_constants.PROJECT_STORAGE_BUCKET, prefix=prefix, delimiter=delimiter)
 
-def delete_blob(blob_name):
+def add_blob_owner(blob_name, user_email):
+    """Adds a user as an owner on the given blob."""
+    # bucket_name = "your-bucket-name"
+    # blob_name = "your-object-name"
+    # user_email = "name@example.com"
+
+    storage_client = storage.Client(project=local_constants.PROJECT_NAME)
+    bucket = storage_client.bucket(local_constants.PROJECT_STORAGE_BUCKET)
+    blob = bucket.blob(blob_name)
+
+    # Reload fetches the current ACL from Cloud Storage.
+    blob.acl.reload()
+
+    # You can also use `group`, `domain`, `all_authenticated` and `all` to
+    # grant access to different types of entities. You can also use
+    # `grant_read` or `grant_write` to grant different roles.
+    blob.acl.user(user_email).grant_read()
+    blob.acl.save()
+
+    print(
+        "Added user {} as an owner on blob {} in bucket {}.".format(
+            user_email, blob_name, bucket
+        )
+    )
+
+
+def make_blob_public(blob_name):
+    storage_client = storage.Client(project=local_constants.PROJECT_NAME)
+    bucket = storage_client.bucket(local_constants.PROJECT_STORAGE_BUCKET)
+    blob = bucket.blob(blob_name)
+
+    blob.make_public()
+
+    return blob.public_url
    
+
+def delete_blob(blob_name):
     storage_client = storage.Client(project=local_constants.PROJECT_NAME)
     bucket = storage_client.bucket(local_constants.PROJECT_STORAGE_BUCKET)
     print(blob_name)
@@ -123,23 +177,29 @@ def addFilePageHandler(name):
     user_info = None 
     data=[]
     file_list=[]
-
+    print(name)
     if id_token:
         try: 
             claims = google.oauth2.id_token.verify_firebase_token(id_token, firebase_request_adapter)
             user_info = retrieveUserInfo(claims)
-            file_list=user_info['files_list_keys']
             blob_list = blobList(name, True)
             for i in blob_list:
                 if i.name[len(i.name)-1]=='/':
                     session['location']=name
                 if i.name[len(i.name)-1]!='/':
                     file_list.append(i.name)
-
+            print(file_list)
+            
         except ValueError as exc: 
             error_message = str(exc)
      
     return render_template('addFiles.html', path=name, data=json.dumps(file_list))
+
+@app.route('/shareFile/<path:name>', methods=['POST', 'GET'])
+def shareFileHandler(name):
+    return render_template('shareFile.html', path=name)
+
+
 
 @app.route('/')
 def root():
@@ -177,8 +237,7 @@ def root():
                     if i.name == session['email']+'/':
                         directory_list.append(i)
                         session['location']=i
-            
-                               
+                           
         except ValueError as exc: 
             error_message = str(exc)
         
@@ -231,8 +290,7 @@ def addDirectoryHandler(name):
             createDirectory(claims, directory_name)
             flash('You have successfully created a new directory')
             session['location']=directory_name
-            directory.remove(directory_name)
-            blob_list = blobList(name, True)
+            
 
         except ValueError as exc: 
             error_message = str(exc)
@@ -267,7 +325,7 @@ def showDirectory(name):
                 count = prefix.count('/')
             if count ==0:
                 count=1+name.count('/')   
-            print(count)    
+             
            
         except ValueError as exc: 
             error_message = str(exc)
@@ -293,7 +351,9 @@ def changeDirectory(vn):
             myList=''
             count = vn.count('/')
             temp=vn.split('/')
-
+            if request.form.get('path')!='../':
+                flash('You hava use a wrong Symbol')
+                return redirect('/')
             for i in range(count-1):
                 myList=myList+temp[i]+"/"
 
@@ -303,9 +363,13 @@ def changeDirectory(vn):
                     files.append(i.name)
             for prefix in blob_list.prefixes:
                 directory_list.append(prefix) 
-            count=count-1
+            count=count
+            print(count)
+            print(myList)  
+
         except ValueError as exc: 
             error_message = str(exc)
+
     
     return render_template('directoryPage.html', directory_list=directory_list, files=files, user_info=user_info, count=count, path=myList)
 
@@ -418,6 +482,12 @@ def uploadFileHandler(name):
                 temp3=temp1.split('.').pop()
                 temp2=temp1[0 : temp1.rfind('.')]
                 file.filename= temp2 + "new" + "."+temp3
+            else:
+                n = random.randint(0,22)
+                temp1=file.filename
+                temp3=temp1.split('.').pop()
+                temp2=temp1[0 : temp1.rfind('.')]
+                file.filename= temp2 + ""+str(n) + "."+temp3
             
             user_info = retrieveUserInfo(claims)
             myList=user_info['files_list_keys']
@@ -551,5 +621,64 @@ def show_all_dublicate():
             error_message = str(exc)
 
     return render_template('showDublicates.html', files=temp, user_info=user_info, path=session['location'])
+
+@app.route('/share_file/<path:name>', methods=['POST', 'GET'])
+def share_file_handler(name):
+    id_token = request.cookies.get("token") 
+    temp=name
+    mylist=[]
+    email=request.form['file_name']
+    name=name.split('/')[-1]
+    if id_token:
+        try:
+            claims = google.oauth2.id_token.verify_firebase_token(id_token, firebase_request_adapter)
+            user_info = retrieveGeneralShares(email) 
+            if user_info == None:
+                createGeneralShares(email)
+            user_info = retrieveGeneralShares(email)
+            mylist=user_info['shared_files']
+            mylist.append(name)
+            
+            temp_link=make_blob_public(temp)
+            print(temp_link)
+            user_info.update({
+                'shared_files': mylist,
+                'SharerName': claims['email'],
+                'link':temp_link
+            })
+
+            datastore_client.put(user_info)      
+            
+        except ValueError as exc: 
+            error_message = str(exc)
+    
+        
+    return redirect('/')
+
+@app.route('/showSharedFiles', methods=['POST', 'GET'])
+def show_shared_file_handler():
+    mylist=None
+    user_info=None
+    link=None
+    id_token = request.cookies.get("token") 
+    sharer=None
+    if id_token:
+        try:
+            claims = google.oauth2.id_token.verify_firebase_token(id_token, firebase_request_adapter)
+            email=claims['email']
+
+            user_info = retrieveGeneralShares(email)
+            mylist=user_info['shared_files']
+            link=user_info['link']
+            if len(mylist)==0:
+                flash('You have no shared files')
+            print(mylist)
+
+        except ValueError as exc: 
+            error_message = str(exc)
+
+    return render_template('showSharedFiles.html', files=mylist, user_info=user_info, link=link)
+
+
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)
