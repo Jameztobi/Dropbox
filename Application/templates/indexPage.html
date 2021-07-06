@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <title>Droxbox</title>
+  <title>Main Page</title>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 
@@ -44,13 +44,9 @@
       <!--Left Sidebar-->
       <aside class="left">
         <ul>
-          <li><a href="/">Home</a></li>
-          <li><a href="/addDirectory/{{path}}">Create Directory</a></li>
-          {% if path %}
-          <li><a href="/addFiles/{{path}}">Upload Files</a></li>
-          {% endif %}
-          <li><a href="/show_dublicates">Dublicate Files</a></li>
-
+          <li><a href="/">Home</a></li> 
+          <li><a href="/allDublicates">Show all Duplicate Files</a></li>
+          <li><a href="/showSharedFiles">Shared Files</a></li>
         </ul>
       </aside>
       <!--//left sidebar-->
@@ -70,62 +66,26 @@
         {% endwith %}
         {% if user_info %}
         <section id="dp">
-
-           {% if count > 2 %}
-               {% if path %}
-                    <form action="/way/{{path}}" class="form-group" method="POST">
-                        <label for="path-getter" class="path-label">Path:</label>
-                        <input type="text" class="form-path" id = "path-getter" name='path'  />
-                        <input type="submit" class="btn btn-danger" id = "path-getter" value='submit' />
-                    </form>
-                {% endif %}
-            {% endif %}
-
-            {% if directory_list %}
-            <div class="row">
+          {% if directory_list %}
+          <div class="row">
             {% for i in directory_list %}
             <div class="col-sm-4">
               <div class="card bg-dark mb-1" style="max-width: 18rem;">
                 <div class="card-body">
-                  <p hidden>{{i}}</p>
-                  <p class="card-text">Folder Name: {{i}}</p>
-                  {% if root==i %}
+                  <p hidden>{{i.name}}</p>
+                  <p class="card-text">Folder Name: {{i.name}}</p>
+                  {% if root==i.name %}
                   <p class="card-text">Root </p>
                   {% endif %}
                   <div class="row">
                     <div class="col-5">
-                      <a href="/addDirectory/{{i}}" class="btn btn-danger">Add Directory</a>
+                      <a href="/addDirectory/{{i.name}}" class="btn btn-danger">Add Directory</a>
                     </div>
                     <div class="col-3">
-                      <a href="/show/{{i}}" class="btn btn-danger" style="margin: 0em 0em 0em -1em;">Show content</a>
+                      <a href="/show/{{i.name}}" class="btn btn-danger" style="margin: 0em 0em 0em -1em;">Show content</a>
                     </div>
                     <div class="col-3" >
-                      <a href="/delete/{{i}}" class="btn btn-danger" style="margin: 0em 0em 0em -0.3em;">Delete Folder</a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {% endfor %}
-            {% endif %}
-
-            {% if files  %}
-            <div class="row">
-            {% for i in files %}
-            <div class="col-sm-4">
-              <div class="card bg-dark mb-1" style="max-width: 18rem;">
-                <div class="card-body">
-                  <p hidden>{{i}}</p>
-                  <p class="card-text">File Name: {{i}}</p>
-                  <div class="row">
-                    <div class="col-4">
-                      <a href="/download_file/{{i}}" class="btn btn-danger" style="margin: 0em 0em 0em -1em;">Download File</a>
-                    </div>
-                    <div class="col-4" >
-                      <a href="/delete/{{i}}" class="btn btn-danger" style="margin: 0em 0em 0em -0.3em;">Delete File</a>
-                    </div>
-                    <div class="col-4" >
-                      <a href="/shareFile/{{i}}" class="btn btn-danger" style="margin: 0em 0em 0em -0.5em;">Share File</a>
+                      <a href="/deleteDirectory/{{i.name}}" class="btn btn-danger disabled" style="margin: 0em 0em 0em -0.3em;">Delete Folder</a>
                     </div>
                   </div>
                 </div>

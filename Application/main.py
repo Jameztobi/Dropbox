@@ -63,30 +63,6 @@ def blobList(prefix, boolean):
 
     return storage_client.list_blobs(local_constants.PROJECT_STORAGE_BUCKET, prefix=prefix, delimiter=delimiter)
 
-def add_blob_owner(blob_name, user_email):
-    """Adds a user as an owner on the given blob."""
-    # bucket_name = "your-bucket-name"
-    # blob_name = "your-object-name"
-    # user_email = "name@example.com"
-
-    storage_client = storage.Client(project=local_constants.PROJECT_NAME)
-    bucket = storage_client.bucket(local_constants.PROJECT_STORAGE_BUCKET)
-    blob = bucket.blob(blob_name)
-
-    # Reload fetches the current ACL from Cloud Storage.
-    blob.acl.reload()
-
-    # You can also use `group`, `domain`, `all_authenticated` and `all` to
-    # grant access to different types of entities. You can also use
-    # `grant_read` or `grant_write` to grant different roles.
-    blob.acl.user(user_email).grant_read()
-    blob.acl.save()
-
-    print(
-        "Added user {} as an owner on blob {} in bucket {}.".format(
-            user_email, blob_name, bucket
-        )
-    )
 
 
 def make_blob_public(blob_name):
@@ -183,7 +159,8 @@ def root():
     claims = None
     times = None
     user_info = None 
-    root = True
+    email=None
+    root = None
     directory_list = []
 
     if id_token:
@@ -195,8 +172,9 @@ def root():
             if user_info == None:
                 createUserInfo(claims)
             user_info = retrieveUserInfo(claims)
-            session['email']=user_info['email']
-            session['location']=session['email']+'/'
+            email=user_info['email']
+            session['email']=email
+            session['location']=email+'/'
 
             blob_list = blobList(None, False) 
             for i in blob_list:
@@ -215,7 +193,7 @@ def root():
             error_message = str(exc)
         
 
-    return render_template('indexPage.html', user_data=claims, error_message=error_message, user_info=user_info, root=session['email']+'/', directory_list=directory_list)
+    return render_template('indexPage.html', user_data=claims, error_message=error_message, user_info=user_info,  directory_list=directory_list)
 
 @app.route('/add_directory/<path:name>/', methods=['POST']) 
 def addDirectoryHandler(name):
@@ -226,16 +204,19 @@ def addDirectoryHandler(name):
     user_info = None
     directory=[]
     directory_list=[]
+    temp_list=[]
+    myList={}
     files=[]
     count=0
     if id_token:
         try:
             claims = google.oauth2.id_token.verify_firebase_token(id_token, firebase_request_adapter)
-
+   
             directory_name = request.form['Fname']
             if directory_name == '' or directory_name[len(directory_name) - 1] != '/':
                 flash('A directory should have a directory name followed by a /')
                 return render_template('addDirectory.html')
+            labelname=directory_name
             blob_list = blobList(name, True) 
             for i in blob_list:
                 if i.name[len(i.name)-1]=='/':
@@ -265,19 +246,32 @@ def addDirectoryHandler(name):
             flash('You have successfully created a new directory')
             session['location']=directory_name
 
+            temp=None
+            label=None
             blob_list = blobList(name, True)
             for i in blob_list:
                 for prefix in blob_list.prefixes:
-                    directory_list.append(prefix)
+                    label=prefix
                     count = prefix.count('/')
+                    directory_list.append(prefix)
+                    temp=prefix.split('/')
+                    temp_list.append(temp[count-1]+'/')
+            
                 if count ==0:
                     count=2+name.count('/')
             
+            for i in range(len(temp_list)):
+                myList.update({
+                  directory_list[i]:temp_list[i] 
+                })
+
+            print(myList)
+           
 
         except ValueError as exc: 
             error_message = str(exc)
 
-    return render_template('directoryPage.html', directory_list=directory_list, files=files, user_info=user_info, count=count)
+    return render_template('directoryPage.html', directory_list=directory_list, myList=myList, files=files, user_info=user_info, count=count)
 
 @app.route('/show/<path:name>/', methods=['POST', 'GET'])
 def showDirectory(name):
@@ -288,6 +282,10 @@ def showDirectory(name):
     user_info = None
     directory_list=[]
     files=[]
+    files_list=[]
+    temp_list=[]
+    myList={}
+    myList2={}
     count=0
     prefix=None
 
@@ -302,17 +300,35 @@ def showDirectory(name):
                     session['location']=name
                 if i.name[len(i.name)-1]!='/':
                     files.append(i.name)
+                    count = i.name.count('/')
+                    temp=i.name.split('/')
+                    files_list.append(temp[count])
+
             for prefix in blob_list.prefixes:
                 directory_list.append(prefix)
                 count = prefix.count('/')
+                temp=prefix.split('/')
+                print(temp)
+                temp_list.append(temp[count-1]+'/')
             if count ==0:
                 count=1+name.count('/')   
              
-           
+            for i in range(len(temp_list)):
+                myList.update({
+                    directory_list[i]:temp_list[i] 
+                })
+            
+            for i in range(len(files_list)):
+                myList2.update({
+                    files[i]:files_list[i] 
+                })
+
+
+            
         except ValueError as exc: 
             error_message = str(exc)
     
-    return render_template('directoryPage.html', directory_list=directory_list, files=files, user_info=user_info, count=count, path=name)
+    return render_template('directoryPage.html', directory_list=directory_list, files=files, user_info=user_info, myList=myList, myList2=myList2, count=count, path=name)
 
 @app.route('/way/<path:vn>', methods=['POST', 'GET'])
 def changeDirectory(vn):
@@ -323,7 +339,10 @@ def changeDirectory(vn):
     user_info = None
     directory_list=[]
     files=[]
-    myList=[]
+    files_list=[]
+    myList={}
+    myList2={}
+    temp_list=[]
     count=0
     prefix=None
 
@@ -331,29 +350,51 @@ def changeDirectory(vn):
         try:
             claims = google.oauth2.id_token.verify_firebase_token(id_token, firebase_request_adapter)
             user_info = retrieveUserInfo(claims)
-            myList=''
+            myList1=''
             count = vn.count('/')
             temp=vn.split('/')
             if request.form.get('path')!='../':
                 flash('You hava use a wrong Symbol')
                 return redirect('/')
             for i in range(count-1):
-                myList=myList+temp[i]+"/"
+                myList1=myList1+temp[i]+"/"
 
-            blob_list = blobList(myList, True)
+            blob_list = blobList(myList1, True)
             for i in blob_list:
                 if i.name[len(i.name)-1]!='/':
                     files.append(i.name)
+                    temp=i.name.split('/')
+                    print(temp)
+                    print('this is count ', count)
+                    print(len(files_list))
+                    files_list.append(temp[count-1])
+                    
             for prefix in blob_list.prefixes:
-                directory_list.append(prefix) 
-            count=count
-           
+                directory_list.append(prefix)
+                temp=prefix.split('/')
+                temp_list.append(temp[count-1]+'/') 
 
+            count=count
+
+            for i in range(len(temp_list)):
+                myList.update({
+                    directory_list[i]:temp_list[i] 
+                })
+            
+            for i in range(len(files_list)):
+                myList2.update({
+                    files[i]:files_list[i] 
+                })
+            
+            print(files_list)
+            print(files)
+            print(myList2)
+        
         except ValueError as exc: 
             error_message = str(exc)
 
     
-    return render_template('directoryPage.html', directory_list=directory_list, files=files, user_info=user_info, count=count, path=myList)
+    return render_template('directoryPage.html', directory_list=directory_list, files=files, user_info=user_info, myList=myList, myList2=myList2, count=count, path=myList1)
 
 
 @app.route('/delete/<path:name>', methods=['POST', 'GET'])
@@ -452,9 +493,13 @@ def uploadFileHandler(name):
     claims = None
     times = None
     user_info = None
-    myList=[]
+    myList1=[]
     directory=[]
     directory_list=[]
+    temp_list=[]
+    files_list=[]
+    myList={}
+    myList2={}
     path=None
     count=0
     files=[]
@@ -480,11 +525,11 @@ def uploadFileHandler(name):
                 file.filename= temp2 + ""+str(n) + "."+temp3
             
             user_info = retrieveUserInfo(claims)
-            myList=user_info['files_list_keys']
+            myList1=user_info['files_list_keys']
            
-            myList.append(file.filename)
+            myList1.append(file.filename)
             user_info.update({
-                'files_list_keys':myList 
+                'files_list_keys':myList1 
             })
             datastore_client.put(user_info)
             addFile(name, file)
@@ -495,17 +540,35 @@ def uploadFileHandler(name):
                 if i.name[len(i.name)-1]=='/':
                     session['location']=name
                 if i.name[len(i.name)-1]!='/':
+                    count = i.name.count('/')
                     files.append(i.name)
+                    temp=i.name.split('/')
+                    print(temp)
+                    print('this is count ', count)
+                    files_list.append(temp[count])
             for prefix in blob_list.prefixes:
                 directory_list.append(prefix)
+                temp=prefix.split('/')
+                temp_list.append(temp[count-1]+'/') 
                 count = prefix.count('/')
             if count ==0:
                 count=2+name.count('/')
+
+            for i in range(len(temp_list)):
+                myList.update({
+                    directory_list[i]:temp_list[i] 
+                })
+
+            for i in range(len(files_list)):
+                myList2.update({
+                    files[i]:files_list[i] 
+                })
+
         
         except ValueError as exc: 
             error_message = str(exc)
 
-    return render_template('directoryPage.html', directory_list=directory_list, files=files, user_info=user_info, count=count, path=session['location'])
+    return render_template('directoryPage.html', directory_list=directory_list, files=files, myList=myList, myList2=myList2, user_info=user_info, count=count, path=session['location'])
 
 @app.route('/download_file/<path:filename>', methods=['POST', 'GET']) 
 def downloadFile(filename):
@@ -573,6 +636,7 @@ def show_all_dublicate():
     files=[]
     count=0
     temp_list=[]
+    temp_list2=[]
     temp_list_final=[]
     unique_list = []
     mylist=[]
@@ -606,7 +670,9 @@ def show_all_dublicate():
 
             for name, dict_ in files_list.items():
                 if dict_ in temp_list_final:
-                    temp.append(name)
+                    temp_list2=name.split('/')
+                    temp.append(temp_list2[count+1])
+                    print(temp_list2)
             
         except ValueError as exc: 
             error_message = str(exc)
@@ -623,6 +689,9 @@ def share_file_handler(name):
     if id_token:
         try:
             claims = google.oauth2.id_token.verify_firebase_token(id_token, firebase_request_adapter)
+            if email =='':
+                flash('Enter a valid email')
+                return redirect('/')
             user_info = retrieveGeneralShares(email) 
             if user_info == None:
                 createGeneralShares(email)
@@ -640,7 +709,7 @@ def share_file_handler(name):
 
             datastore_client.put(user_info) 
 
-            flash('You have successfully shared the file with {}'.format(claims['email']))
+            flash('You have successfully shared the file with {}'.format(email))
         except ValueError as exc: 
             error_message = str(exc)
     

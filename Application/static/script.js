@@ -30,7 +30,7 @@ window.addEventListener('load', function () {
 
             // get the id token for the user and set it as a cookie so we can maintain a session
             user.getIdToken().then(function(token) {
-                document.cookie = "token=" + token + ";path=/";
+                document.cookie = "token=" + token + ";path=/"; 
             });
         } else {
             // there is no user signed in so initialise a firebase UI widget and set it on the approriate part of the template
@@ -40,7 +40,8 @@ window.addEventListener('load', function () {
             // hide the signout and login-info fields and clear the token
             document.getElementById('sign-out').hidden = true;
             document.getElementById('login-info').hidden = true;
-            document.cookie = "token=;path=/";
+            document.cookie = "token=;path=/"; 
+
         }
     }, function(error) {
         // if something goes wrong then log the error to console and state the user could not be logged in
